@@ -266,16 +266,45 @@
     .libro-titolo { color: #2d3748; font-weight: 600; font-size: 0.9rem; }
     .libro-autore { color: #718096; font-size: 0.82rem; }
 
-    .btn-rimuovi {
+    .libro-azioni { display: flex; gap: 4px; flex-shrink: 0; }
+
+    .btn-rimuovi, .btn-modifica {
       background: none;
       border: none;
-      color: #e53e3e;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       cursor: pointer;
       padding: 4px 8px;
       border-radius: 6px;
     }
+    .btn-rimuovi { color: #e53e3e; }
     .btn-rimuovi:active { background: #fff5f5; }
+    .btn-modifica { color: #3182ce; }
+    .btn-modifica:active { background: #ebf8ff; }
+
+    /* pannello modifica titolo inline */
+    .modifica-panel {
+      display: none;
+      padding: 8px 0 4px;
+    }
+    .modifica-panel.visibile { display: flex; gap: 6px; }
+    .modifica-panel input {
+      flex: 1;
+      border: 2px solid #3182ce;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .btn-salva-titolo {
+      background: #38a169;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
     .nessun-libro {
       color: #a0aec0;
@@ -763,19 +792,45 @@ function aggiornaUI() {
         <div class="scatola-libri" id="libri-${num}">
           ${libri.length === 0
             ? '<div class="nessun-libro">Nessun libro</div>'
-            : libri.map(l => `
-              <div class="libro-item">
-                <div>
-                  <div class="libro-titolo">${l.titolo !== l.isbn ? l.titolo : '(titolo non trovato)'}</div>
-                  ${l.autore ? `<div class="libro-autore">${l.autore}</div>` : ''}
-                  <div class="libro-isbn">${l.isbn}</div>
+            : libri.map((l, idx) => `
+              <div class="libro-item" style="flex-direction:column; align-items:stretch;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div>
+                    <div class="libro-titolo">${l.titolo !== l.isbn ? l.titolo : '(titolo non trovato)'}</div>
+                    ${l.autore ? `<div class="libro-autore">${l.autore}</div>` : ''}
+                    <div class="libro-isbn">${l.isbn}</div>
+                  </div>
+                  <div class="libro-azioni">
+                    <button class="btn-modifica" onclick="apriModifica(${num}, ${idx})" title="Modifica titolo">✏️</button>
+                    <button class="btn-rimuovi" onclick="rimuoviLibro(${num}, '${l.isbn}')" title="Rimuovi">✕</button>
+                  </div>
                 </div>
-                <button class="btn-rimuovi" onclick="rimuoviLibro(${num}, '${l.isbn}')" title="Rimuovi">✕</button>
+                <div class="modifica-panel" id="modifica-${num}-${idx}">
+                  <input type="text" id="input-modifica-${num}-${idx}" value="${l.titolo !== l.isbn ? l.titolo : ''}" placeholder="Scrivi il titolo…" />
+                  <button class="btn-salva-titolo" onclick="salvaTitolo(${num}, ${idx})">✓</button>
+                </div>
               </div>`).join('')
           }
         </div>
       </div>`;
   }).join('');
+}
+
+function apriModifica(num, idx) {
+  const panel = document.getElementById(`modifica-${num}-${idx}`);
+  const input = document.getElementById(`input-modifica-${num}-${idx}`);
+  const aperto = panel.classList.toggle('visibile');
+  if (aperto) setTimeout(() => input.focus(), 50);
+}
+
+function salvaTitolo(num, idx) {
+  const input = document.getElementById(`input-modifica-${num}-${idx}`);
+  const nuovoTitolo = input.value.trim();
+  if (!nuovoTitolo) return;
+  stato.scatole[num][idx].titolo = nuovoTitolo;
+  salvaDati();
+  aggiornaUI();
+  mostraToast('✏️ Titolo aggiornato');
 }
 
 function toggleScatola(num) {
