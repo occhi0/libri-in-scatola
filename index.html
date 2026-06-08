@@ -279,6 +279,25 @@
     }
     .btn-stampa:active { background: #f0f4f8; }
 
+    .btn-lucchetto {
+      background: none;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .btn-lucchetto:active { background: #f0f4f8; }
+
+    .scatola-card.bloccata .scatola-header {
+      background: #f7fafc;
+    }
+    .scatola-card.bloccata .scatola-titolo {
+      color: #718096;
+    }
+    .scatola-card.bloccata .libro-azioni { opacity: 0.3; pointer-events: none; }
+    .scatola-card.bloccata .modifica-panel { display: none !important; }
+
     .btn-rimuovi, .btn-modifica {
       background: none;
       border: none;
@@ -489,7 +508,7 @@ function caricaDati() {
       return dati;
     }
   } catch(e) {}
-  return { scatolaAttiva: 1, scatole: {} };
+  return { scatolaAttiva: 1, scatole: {}, bloccate: {} };
 }
 
 // ogni libro è { isbn, titolo, autore }
@@ -536,6 +555,7 @@ let stato = caricaDati();
 if (!stato.scatole[stato.scatolaAttiva]) {
   stato.scatole[stato.scatolaAttiva] = [];
 }
+if (!stato.bloccate) stato.bloccate = {};
 
 // ── SCANNER ───────────────────────────────────────────────────────────────────
 
@@ -720,6 +740,11 @@ async function aggiungiLibro(isbn) {
     }
   }
 
+  if (stato.bloccate[stato.scatolaAttiva]) {
+    mostraFeedback(`🔒 Scatola ${stato.scatolaAttiva} è bloccata!`, 'errore');
+    return;
+  }
+
   mostraFeedback('🔍 Cerco il titolo…', 'ok');
   const libro = await cercaLibro(isbn);
 
@@ -834,7 +859,7 @@ function aggiornaUI() {
     const libri = stato.scatole[num] || [];
     const isAttiva = num === stato.scatolaAttiva;
     return `
-      <div class="scatola-card">
+      <div class="scatola-card${stato.bloccate[num] ? ' bloccata' : ''}">
         <div class="scatola-header" onclick="toggleScatola(${num})">
           <div>
             <div class="scatola-titolo">
@@ -845,6 +870,7 @@ function aggiornaUI() {
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
+            <button class="btn-lucchetto" onclick="event.stopPropagation(); toggleLucchetto(${num})" title="${stato.bloccate[num] ? 'Sblocca' : 'Blocca'} scatola">${stato.bloccate[num] ? '🔒' : '🔓'}</button>
             <button class="btn-stampa" onclick="event.stopPropagation(); stampaScatola(${num})" title="Esporta PDF">🖨️</button>
             <div class="scatola-toggle" id="toggle-${num}">▼</div>
           </div>
@@ -924,6 +950,27 @@ function stampaScatola(num) {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+}
+
+// ── LUCCHETTO ─────────────────────────────────────────────────────────────────
+
+function toggleLucchetto(num) {
+  if (stato.bloccate[num]) {
+    delete stato.bloccate[num];
+    mostraToast(`🔓 Scatola ${num} sbloccata`);
+  } else {
+    stato.bloccate[num] = true;
+    // se era la scatola attiva, passa alla prossima non bloccata
+    if (stato.scatolaAttiva == num) {
+      const libera = Object.keys(stato.scatole)
+        .map(Number)
+        .find(n => !stato.bloccate[n] && n != num);
+      if (libera) stato.scatolaAttiva = libera;
+    }
+    mostraToast(`🔒 Scatola ${num} bloccata`);
+  }
+  salvaDati();
+  aggiornaUI();
 }
 
 function apriModifica(num, idx) {
