@@ -297,15 +297,16 @@
       display: none;
       padding: 8px 0 4px;
     }
-    .modifica-panel.visibile { display: flex; gap: 6px; }
+    .modifica-panel.visibile { display: flex; flex-direction: column; gap: 6px; }
     .modifica-panel input {
-      flex: 1;
+      width: 100%;
       border: 2px solid #3182ce;
       border-radius: 8px;
       padding: 8px 10px;
       font-size: 0.9rem;
       outline: none;
     }
+    .modifica-panel .modifica-azioni { display: flex; gap: 6px; }
     .btn-salva-titolo {
       background: #38a169;
       color: white;
@@ -860,8 +861,11 @@ function aggiornaUI() {
                   </div>
                 </div>
                 <div class="modifica-panel" id="modifica-${num}-${idx}">
-                  <input type="text" id="input-modifica-${num}-${idx}" value="${l.titolo !== l.isbn ? l.titolo : ''}" placeholder="Scrivi il titolo…" />
-                  <button class="btn-salva-titolo" onclick="salvaTitolo(${num}, ${idx})">✓</button>
+                  <input type="text" id="input-modifica-${num}-${idx}" value="${l.titolo !== l.isbn ? l.titolo : ''}" placeholder="Titolo…" />
+                  <input type="text" id="input-autore-${num}-${idx}" value="${l.autore || ''}" placeholder="Autore…" />
+                  <div class="modifica-azioni">
+                    <button class="btn-salva-titolo" style="flex:1;" onclick="salvaTitolo(${num}, ${idx})">✓ Salva</button>
+                  </div>
                 </div>
               </div>`).join('')
           }
@@ -925,13 +929,14 @@ function apriModifica(num, idx) {
 }
 
 function salvaTitolo(num, idx) {
-  const input = document.getElementById(`input-modifica-${num}-${idx}`);
-  const nuovoTitolo = input.value.trim();
+  const nuovoTitolo = document.getElementById(`input-modifica-${num}-${idx}`).value.trim();
+  const nuovoAutore = document.getElementById(`input-autore-${num}-${idx}`).value.trim();
   if (!nuovoTitolo) return;
   stato.scatole[num][idx].titolo = nuovoTitolo;
+  stato.scatole[num][idx].autore = nuovoAutore;
   salvaDati();
   aggiornaUI();
-  mostraToast('✏️ Titolo aggiornato');
+  mostraToast('✏️ Libro aggiornato');
 }
 
 // ── RICERCA ───────────────────────────────────────────────────────────────────
