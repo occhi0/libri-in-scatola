@@ -268,6 +268,17 @@
 
     .libro-azioni { display: flex; gap: 4px; flex-shrink: 0; }
 
+    .btn-stampa {
+      background: none;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: #718096;
+    }
+    .btn-stampa:active { background: #f0f4f8; }
+
     .btn-rimuovi, .btn-modifica {
       background: none;
       border: none;
@@ -827,7 +838,10 @@ function aggiornaUI() {
               ${libri.length === 1 ? '1 libro' : `${libri.length} libri`}
             </div>
           </div>
-          <div class="scatola-toggle" id="toggle-${num}">▼</div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="btn-stampa" onclick="event.stopPropagation(); stampaScatola(${num})" title="Esporta PDF">🖨️</button>
+            <div class="scatola-toggle" id="toggle-${num}">▼</div>
+          </div>
         </div>
         <div class="scatola-libri" id="libri-${num}">
           ${libri.length === 0
@@ -854,6 +868,53 @@ function aggiornaUI() {
         </div>
       </div>`;
   }).join('');
+}
+
+// ── STAMPA PDF ────────────────────────────────────────────────────────────────
+
+function stampaScatola(num) {
+  const libri = stato.scatole[num] || [];
+  const righe = libri.map((l, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${l.titolo !== l.isbn ? l.titolo : '<em>senza titolo</em>'}</td>
+      <td>${l.autore || '—'}</td>
+      <td>${l.isbn}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Scatola ${num}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 32px; color: #1a202c; }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .sub { color: #718096; margin-bottom: 24px; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #2b6cb0; color: white; padding: 8px 12px; text-align: left; font-size: 0.85rem; }
+    td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.88rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f7fafc; }
+    .footer { margin-top: 24px; font-size: 0.8rem; color: #a0aec0; }
+    @media print { body { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <h1>📦 Scatola ${num}</h1>
+  <div class="sub">${libri.length} ${libri.length === 1 ? 'libro' : 'libri'} — stampato il ${new Date().toLocaleDateString('it-IT')}</div>
+  <table>
+    <thead><tr><th>#</th><th>Titolo</th><th>Autore</th><th>ISBN</th></tr></thead>
+    <tbody>${righe}</tbody>
+  </table>
+  <div class="footer">Libri in Scatola</div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 function apriModifica(num, idx) {
