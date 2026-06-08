@@ -94,29 +94,46 @@
     #video-container {
       position: relative;
       width: 100%;
+      max-height: 220px;
       border-radius: 10px;
       overflow: hidden;
       background: #000;
       display: none;
+      margin-bottom: 12px;
     }
 
     #video-container video {
       width: 100%;
+      max-height: 220px;
+      object-fit: cover;
       display: block;
+    }
+
+    /* mirino centrale */
+    #mirino {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70%; max-width: 260px;
+      height: 80px;
+      border: 3px solid #f6ad55;
+      border-radius: 8px;
+      box-shadow: 0 0 0 1000px rgba(0,0,0,0.4);
+      pointer-events: none;
     }
 
     #scan-line {
       position: absolute;
-      left: 0; right: 0;
+      left: 15%; right: 15%;
       height: 2px;
       background: #f6ad55;
       top: 50%;
-      animation: scan 2s ease-in-out infinite;
+      animation: scan 1.5s ease-in-out infinite;
     }
 
     @keyframes scan {
-      0%, 100% { top: 20%; }
-      50% { top: 80%; }
+      0%, 100% { top: 30%; }
+      50% { top: 70%; }
     }
 
     #btn-scan {
@@ -323,6 +340,7 @@
     <h2>Scansiona ISBN</h2>
     <div id="video-container">
       <video id="video" autoplay playsinline muted></video>
+      <div id="mirino"></div>
       <div id="scan-line"></div>
     </div>
     <button id="btn-scan">
@@ -380,8 +398,10 @@ if (!stato.scatole[stato.scatolaAttiva]) {
 
 // ── SCANNER ───────────────────────────────────────────────────────────────────
 
-let codeReader = null;
+let streamAttivo = null;
 let scannerAttivo = false;
+let rafId = null;
+let zxingReader = null;
 
 const videoContainer = document.getElementById('video-container');
 const videoEl = document.getElementById('video');
@@ -390,52 +410,119 @@ const isbnInput = document.getElementById('isbn-input');
 const btnAggiungi = document.getElementById('btn-aggiungi');
 const feedback = document.getElementById('feedback');
 
+const usaBarcodeDetector = ('BarcodeDetector' in window);
+
 async function avviaScanner() {
-  if (typeof ZXing === 'undefined') {
-    mostraFeedback('Libreria scanner non disponibile. Usa inserimento manuale.', 'errore');
-    return;
-  }
   try {
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await codeReader.listVideoInputDevices();
-    if (!devices.length) {
-      mostraFeedback('Nessuna fotocamera trovata.', 'errore');
-      return;
-    }
-    // Preferisce fotocamera posteriore
-    const device = devices.find(d =>
-      /back|rear|environment/i.test(d.label)
-    ) || devices[devices.length - 1];
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        focusMode: { ideal: 'continuous' }
+      }
+    });
+    streamAttivo = stream;
+    videoEl.srcObject = stream;
+    await videoEl.play();
 
     videoContainer.style.display = 'block';
     btnScan.classList.add('attivo');
     btnScan.innerHTML = '<span>⏹</span> Ferma scansione';
     scannerAttivo = true;
+    mostraFeedback('', '');
 
-    await codeReader.decodeFromVideoDevice(device.deviceId, videoEl, (result, err) => {
-      if (result) {
-        const isbn = result.getText().replace(/\D/g, '');
-        if (isbn.length >= 10) {
-          fermaScanner();
-          aggiungiLibro(isbn);
-        }
-      }
-    });
+    if (usaBarcodeDetector) {
+      avviaConBarcodeDetector();
+    } else {
+      avviaConZXing();
+    }
   } catch(e) {
     mostraFeedback('Errore fotocamera: ' + (e.message || 'permesso negato'), 'errore');
     fermaScanner();
   }
 }
 
-function fermaScanner() {
-  if (codeReader) {
-    codeReader.reset();
-    codeReader = null;
+// Metodo 1: BarcodeDetector (Android Chrome nativo — molto veloce)
+async function avviaConBarcodeDetector() {
+  const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'] });
+  async function tick() {
+    if (!scannerAttivo) return;
+    try {
+      const barcodes = await detector.detect(videoEl);
+      if (barcodes.length > 0) {
+        const isbn = barcodes[0].rawValue.replace(/\D/g, '');
+        if (isbn.length >= 10) {
+          fermaScanner();
+          aggiungiLibro(isbn);
+          return;
+        }
+      }
+    } catch(e) {}
+    rafId = requestAnimationFrame(tick);
   }
+  rafId = requestAnimationFrame(tick);
+}
+
+// Metodo 2: ZXing fallback
+async function avviaConZXing() {
+  if (typeof ZXing === 'undefined') {
+    mostraFeedback('Scanner non disponibile su questo browser. Usa inserimento manuale.', 'errore');
+    fermaScanner();
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const hints = new Map();
+  const formats = [
+    ZXing.BarcodeFormat.EAN_13,
+    ZXing.BarcodeFormat.EAN_8,
+    ZXing.BarcodeFormat.CODE_128,
+    ZXing.BarcodeFormat.UPC_A,
+  ];
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+  const reader = new ZXing.MultiFormatReader();
+  reader.setHints(hints);
+  zxingReader = reader;
+
+  function tick() {
+    if (!scannerAttivo) return;
+    if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
+      ctx.drawImage(videoEl, 0, 0);
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const luminance = new ZXing.RGBLuminanceSource(imageData.data, canvas.width, canvas.height);
+        const binary = new ZXing.HybridBinarizer(luminance);
+        const bitmap = new ZXing.BinaryBitmap(binary);
+        const result = reader.decode(bitmap);
+        if (result) {
+          const isbn = result.getText().replace(/\D/g, '');
+          if (isbn.length >= 10) {
+            fermaScanner();
+            aggiungiLibro(isbn);
+            return;
+          }
+        }
+      } catch(e) {}
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
+}
+
+function fermaScanner() {
+  scannerAttivo = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (streamAttivo) {
+    streamAttivo.getTracks().forEach(t => t.stop());
+    streamAttivo = null;
+  }
+  videoEl.srcObject = null;
   videoContainer.style.display = 'none';
   btnScan.classList.remove('attivo');
   btnScan.innerHTML = '<span>📷</span> Apri fotocamera';
-  scannerAttivo = false;
 }
 
 btnScan.addEventListener('click', () => {
