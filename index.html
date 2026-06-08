@@ -761,6 +761,9 @@ async function aggiungiLibro(isbn) {
 
 function salvaEAggiungi(libro) {
   stato.scatole[stato.scatolaAttiva].push(libro);
+  stato.scatole[stato.scatolaAttiva].sort((a, b) =>
+    a.titolo.localeCompare(b.titolo, 'it', { sensitivity: 'base' })
+  );
   salvaDati();
   aggiornaUI();
   isbnInput.value = '';
@@ -986,6 +989,9 @@ function salvaTitolo(num, idx) {
   if (!nuovoTitolo) return;
   stato.scatole[num][idx].titolo = nuovoTitolo;
   stato.scatole[num][idx].autore = nuovoAutore;
+  stato.scatole[num].sort((a, b) =>
+    a.titolo.localeCompare(b.titolo, 'it', { sensitivity: 'base' })
+  );
   salvaDati();
   aggiornaUI();
   mostraToast('✏️ Libro aggiornato');
