@@ -306,6 +306,37 @@
       cursor: pointer;
     }
 
+    /* Risultati ricerca */
+    #risultati-ricerca .res-item {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #risultati-ricerca .res-titolo { font-weight: 600; font-size: 0.9rem; color: #2d3748; }
+    #risultati-ricerca .res-autore { font-size: 0.82rem; color: #718096; }
+    #risultati-ricerca .res-isbn { font-size: 0.78rem; color: #a0aec0; font-family: monospace; }
+    #risultati-ricerca .res-scatola {
+      background: #2b6cb0;
+      color: white;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-left: 10px;
+    }
+    #nessun-risultato {
+      text-align: center;
+      color: #a0aec0;
+      padding: 20px;
+      font-size: 0.95rem;
+    }
+
     .nessun-libro {
       color: #a0aec0;
       font-size: 0.85rem;
@@ -399,6 +430,15 @@
   <!-- Lista scatole -->
   <div id="lista-scatole">
     <h2>Tutte le scatole</h2>
+
+    <div id="cerca-container" style="margin-bottom:14px; position:relative;">
+      <input id="cerca-input" type="text" placeholder="🔍 Cerca per titolo, autore o ISBN…"
+        style="width:100%; border:2px solid #e2e8f0; border-radius:12px; padding:12px 40px 12px 14px; font-size:1rem; outline:none; background:white; box-shadow:0 2px 8px rgba(0,0,0,0.06);" />
+      <button id="cerca-clear" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:1.2rem; color:#a0aec0; cursor:pointer; padding:4px;">✕</button>
+    </div>
+
+    <div id="risultati-ricerca" style="display:none; margin-bottom:12px;"></div>
+
     <div id="scatole-container">
       <div id="empty-state">
         <div class="emoji">📦</div>
@@ -832,6 +872,60 @@ function salvaTitolo(num, idx) {
   aggiornaUI();
   mostraToast('✏️ Titolo aggiornato');
 }
+
+// ── RICERCA ───────────────────────────────────────────────────────────────────
+
+const cercaInput = document.getElementById('cerca-input');
+const cercaClear = document.getElementById('cerca-clear');
+const risultatiEl = document.getElementById('risultati-ricerca');
+const scatoleContainer = document.getElementById('scatole-container');
+
+cercaInput.addEventListener('input', () => {
+  const q = cercaInput.value.trim().toLowerCase();
+  cercaClear.style.display = q ? 'block' : 'none';
+  if (!q) {
+    risultatiEl.style.display = 'none';
+    risultatiEl.innerHTML = '';
+    scatoleContainer.style.display = 'block';
+    return;
+  }
+  scatoleContainer.style.display = 'none';
+  risultatiEl.style.display = 'block';
+
+  const trovati = [];
+  for (const [num, libri] of Object.entries(stato.scatole)) {
+    for (const l of libri) {
+      if (
+        l.titolo.toLowerCase().includes(q) ||
+        l.autore.toLowerCase().includes(q) ||
+        l.isbn.includes(q)
+      ) {
+        trovati.push({ ...l, scatola: num });
+      }
+    }
+  }
+
+  if (trovati.length === 0) {
+    risultatiEl.innerHTML = '<div id="nessun-risultato">Nessun libro trovato</div>';
+    return;
+  }
+
+  risultatiEl.innerHTML = trovati.map(l => `
+    <div class="res-item">
+      <div>
+        <div class="res-titolo">${l.titolo !== l.isbn ? l.titolo : '(senza titolo)'}</div>
+        ${l.autore ? `<div class="res-autore">${l.autore}</div>` : ''}
+        <div class="res-isbn">${l.isbn}</div>
+      </div>
+      <div class="res-scatola">📦 ${l.scatola}</div>
+    </div>`).join('');
+});
+
+cercaClear.addEventListener('click', () => {
+  cercaInput.value = '';
+  cercaInput.dispatchEvent(new Event('input'));
+  cercaInput.focus();
+});
 
 function toggleScatola(num) {
   const libriEl = document.getElementById(`libri-${num}`);
