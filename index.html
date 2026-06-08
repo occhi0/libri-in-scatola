@@ -262,7 +262,9 @@
     }
     .libro-item:last-child { border-bottom: none; }
 
-    .libro-isbn { color: #4a5568; font-family: monospace; }
+    .libro-isbn { color: #718096; font-family: monospace; font-size: 0.8rem; }
+    .libro-titolo { color: #2d3748; font-weight: 600; font-size: 0.9rem; }
+    .libro-autore { color: #718096; font-size: 0.82rem; }
 
     .btn-rimuovi {
       background: none;
@@ -386,6 +388,23 @@ function caricaDati() {
   return { scatolaAttiva: 1, scatole: {} };
 }
 
+// ogni libro è { isbn, titolo, autore }
+async function cercaLibro(isbn) {
+  try {
+    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const json = await r.json();
+    const dati = json[`ISBN:${isbn}`];
+    if (dati) {
+      return {
+        isbn,
+        titolo: dati.title || isbn,
+        autore: dati.authors ? dati.authors.map(a => a.name).join(', ') : ''
+      };
+    }
+  } catch(e) {}
+  return { isbn, titolo: isbn, autore: '' };
+}
+
 function salvaDati() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stato));
 }
@@ -446,6 +465,10 @@ async function avviaScanner() {
 // Metodo 1: BarcodeDetector (Android Chrome nativo — molto veloce)
 async function avviaConBarcodeDetector() {
   const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'] });
+  let ultimoValore = null;
+  let primaVolta = null;
+  const CONFERMA_MS = 1200;
+
   async function tick() {
     if (!scannerAttivo) return;
     try {
@@ -453,15 +476,28 @@ async function avviaConBarcodeDetector() {
       if (barcodes.length > 0) {
         const isbn = barcodes[0].rawValue.replace(/\D/g, '');
         if (isbn.length >= 10) {
-          fermaScanner();
-          aggiungiLibro(isbn);
-          return;
+          const ora = Date.now();
+          if (isbn !== ultimoValore) {
+            ultimoValore = isbn;
+            primaVolta = ora;
+            mostraFeedback('📷 Codice trovato, tieni fermo…', 'ok');
+          } else if (ora - primaVolta >= CONFERMA_MS) {
+            fermaScanner();
+            aggiungiLibro(isbn);
+            return;
+          }
+        }
+      } else {
+        if (ultimoValore) {
+          ultimoValore = null;
+          primaVolta = null;
+          mostraFeedback('', '');
         }
       }
     } catch(e) {}
-    rafId = requestAnimationFrame(tick);
+    setTimeout(() => { if (scannerAttivo) tick(); }, 200);
   }
-  rafId = requestAnimationFrame(tick);
+  tick();
 }
 
 // Metodo 2: ZXing fallback
@@ -485,6 +521,10 @@ async function avviaConZXing() {
   reader.setHints(hints);
   zxingReader = reader;
 
+  let ultimoValoreZ = null;
+  let primaVoltaZ = null;
+  const CONFERMA_MS_Z = 1200;
+
   function tick() {
     if (!scannerAttivo) return;
     if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
@@ -500,16 +540,27 @@ async function avviaConZXing() {
         if (result) {
           const isbn = result.getText().replace(/\D/g, '');
           if (isbn.length >= 10) {
-            fermaScanner();
-            aggiungiLibro(isbn);
-            return;
+            const ora = Date.now();
+            if (isbn !== ultimoValoreZ) {
+              ultimoValoreZ = isbn;
+              primaVoltaZ = ora;
+              mostraFeedback('📷 Codice trovato, tieni fermo…', 'ok');
+            } else if (ora - primaVoltaZ >= CONFERMA_MS_Z) {
+              fermaScanner();
+              aggiungiLibro(isbn);
+              return;
+            }
           }
+        } else {
+          ultimoValoreZ = null; primaVoltaZ = null;
         }
-      } catch(e) {}
+      } catch(e) {
+        ultimoValoreZ = null; primaVoltaZ = null;
+      }
     }
-    rafId = requestAnimationFrame(tick);
+    setTimeout(() => { if (scannerAttivo) tick(); }, 200);
   }
-  rafId = requestAnimationFrame(tick);
+  tick();
 }
 
 function fermaScanner() {
@@ -532,7 +583,7 @@ btnScan.addEventListener('click', () => {
 
 // ── AGGIUNTA LIBRO ─────────────────────────────────────────────────────────────
 
-function aggiungiLibro(isbn) {
+async function aggiungiLibro(isbn) {
   isbn = String(isbn).trim().replace(/\D/g, '');
   if (!isbn || isbn.length < 10) {
     mostraFeedback('ISBN non valido (min. 10 cifre).', 'errore');
@@ -541,17 +592,20 @@ function aggiungiLibro(isbn) {
 
   // Controlla duplicato globale
   for (const [num, libri] of Object.entries(stato.scatole)) {
-    if (libri.includes(isbn)) {
+    if (libri.find(l => l.isbn === isbn)) {
       mostraFeedback(`⚠️ ISBN già nella Scatola ${num}!`, 'errore');
       return;
     }
   }
 
-  stato.scatole[stato.scatolaAttiva].push(isbn);
+  mostraFeedback('🔍 Cerco il titolo…', 'ok');
+  const libro = await cercaLibro(isbn);
+  stato.scatole[stato.scatolaAttiva].push(libro);
   salvaDati();
   aggiornaUI();
   isbnInput.value = '';
-  mostraToast(`📗 Aggiunto alla Scatola ${stato.scatolaAttiva}`);
+  const etichetta = libro.titolo !== isbn ? `"${libro.titolo}"` : `ISBN ${isbn}`;
+  mostraToast(`📗 ${etichetta} → Scatola ${stato.scatolaAttiva}`);
   mostraFeedback('', '');
 }
 
@@ -576,10 +630,10 @@ document.getElementById('btn-nuova-scatola').addEventListener('click', () => {
 // ── RIMOZIONE LIBRO ───────────────────────────────────────────────────────────
 
 function rimuoviLibro(scatola, isbn) {
-  stato.scatole[scatola] = stato.scatole[scatola].filter(i => i !== isbn);
+  stato.scatole[scatola] = stato.scatole[scatola].filter(l => l.isbn !== isbn);
   salvaDati();
   aggiornaUI();
-  mostraToast('🗑️ ISBN rimosso');
+  mostraToast('🗑️ Libro rimosso');
 }
 
 // ── UI ─────────────────────────────────────────────────────────────────────────
@@ -627,10 +681,14 @@ function aggiornaUI() {
         <div class="scatola-libri" id="libri-${num}">
           ${libri.length === 0
             ? '<div class="nessun-libro">Nessun libro</div>'
-            : libri.map(isbn => `
+            : libri.map(l => `
               <div class="libro-item">
-                <span class="libro-isbn">${isbn}</span>
-                <button class="btn-rimuovi" onclick="rimuoviLibro(${num}, '${isbn}')" title="Rimuovi">✕</button>
+                <div>
+                  <div class="libro-titolo">${l.titolo !== l.isbn ? l.titolo : '(titolo non trovato)'}</div>
+                  ${l.autore ? `<div class="libro-autore">${l.autore}</div>` : ''}
+                  <div class="libro-isbn">${l.isbn}</div>
+                </div>
+                <button class="btn-rimuovi" onclick="rimuoviLibro(${num}, '${l.isbn}')" title="Rimuovi">✕</button>
               </div>`).join('')
           }
         </div>
