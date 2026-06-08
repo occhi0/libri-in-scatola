@@ -395,38 +395,49 @@ const STORAGE_KEY = 'libri-in-scatola-v1';
 function caricaDati() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const dati = JSON.parse(raw);
+      // migrazione: converte stringhe ISBN in oggetti {isbn, titolo, autore}
+      for (const num of Object.keys(dati.scatole)) {
+        dati.scatole[num] = dati.scatole[num].map(l =>
+          typeof l === 'string' ? { isbn: l, titolo: l, autore: '' } : l
+        );
+      }
+      return dati;
+    }
   } catch(e) {}
   return { scatolaAttiva: 1, scatole: {} };
 }
 
 // ogni libro è { isbn, titolo, autore }
 async function cercaLibro(isbn) {
-  // 1. Google Books (migliore per edizioni italiane)
+  // 1. Google Books — solo edizioni italiane
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&langRestrict=it`);
+    const json = await r.json();
+    if (json.totalItems > 0) {
+      const info = json.items[0].volumeInfo;
+      return { isbn, titolo: info.title || isbn, autore: info.authors ? info.authors.join(', ') : '' };
+    }
+  } catch(e) {}
+
+  // 2. Google Books — senza restrizione lingua (libri stranieri)
   try {
     const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
     const json = await r.json();
     if (json.totalItems > 0) {
       const info = json.items[0].volumeInfo;
-      return {
-        isbn,
-        titolo: info.title || isbn,
-        autore: info.authors ? info.authors.join(', ') : ''
-      };
+      return { isbn, titolo: info.title || isbn, autore: info.authors ? info.authors.join(', ') : '' };
     }
   } catch(e) {}
 
-  // 2. Open Library come fallback
+  // 3. Open Library come ultimo tentativo
   try {
     const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
     const json = await r.json();
     const dati = json[`ISBN:${isbn}`];
     if (dati) {
-      return {
-        isbn,
-        titolo: dati.title || isbn,
-        autore: dati.authors ? dati.authors.map(a => a.name).join(', ') : ''
-      };
+      return { isbn, titolo: dati.title || isbn, autore: dati.authors ? dati.authors.map(a => a.name).join(', ') : '' };
     }
   } catch(e) {}
 
