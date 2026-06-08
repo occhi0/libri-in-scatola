@@ -402,6 +402,21 @@ function caricaDati() {
 
 // ogni libro è { isbn, titolo, autore }
 async function cercaLibro(isbn) {
+  // 1. Google Books (migliore per edizioni italiane)
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const json = await r.json();
+    if (json.totalItems > 0) {
+      const info = json.items[0].volumeInfo;
+      return {
+        isbn,
+        titolo: info.title || isbn,
+        autore: info.authors ? info.authors.join(', ') : ''
+      };
+    }
+  } catch(e) {}
+
+  // 2. Open Library come fallback
   try {
     const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
     const json = await r.json();
@@ -414,6 +429,7 @@ async function cercaLibro(isbn) {
       };
     }
   } catch(e) {}
+
   return { isbn, titolo: isbn, autore: '' };
 }
 
