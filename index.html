@@ -353,6 +353,18 @@
       <button id="btn-aggiungi">Aggiungi</button>
     </div>
     <div id="feedback"></div>
+
+    <!-- Pannello titolo manuale (appare solo se titolo non trovato) -->
+    <div id="titolo-panel" style="display:none; margin-top:14px; background:#fffbeb; border:2px solid #f6ad55; border-radius:12px; padding:16px;">
+      <div style="font-size:0.9rem; font-weight:700; margin-bottom:4px; color:#92400e;">Titolo non trovato per:</div>
+      <div id="titolo-isbn-label" style="font-family:monospace; color:#4a5568; margin-bottom:12px; font-size:0.85rem;"></div>
+      <input id="titolo-input" type="text" placeholder="Scrivi il titolo (opzionale)…"
+        style="width:100%; border:2px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:1rem; margin-bottom:10px; outline:none;" />
+      <div style="display:flex; gap:8px;">
+        <button id="btn-titolo-conferma" style="flex:1; background:#38a169; color:white; border:none; border-radius:10px; padding:12px; font-size:1rem; font-weight:700; cursor:pointer;">Conferma</button>
+        <button id="btn-titolo-annulla" style="background:#e2e8f0; color:#4a5568; border:none; border-radius:10px; padding:12px 16px; font-size:1rem; font-weight:700; cursor:pointer;">Annulla</button>
+      </div>
+    </div>
   </div>
 
   <!-- Lista scatole -->
@@ -600,14 +612,57 @@ async function aggiungiLibro(isbn) {
 
   mostraFeedback('🔍 Cerco il titolo…', 'ok');
   const libro = await cercaLibro(isbn);
+
+  if (libro.titolo === isbn) {
+    // titolo non trovato: chiedi manualmente
+    mostraFeedback('', '');
+    mostraPannelloTitolo(isbn);
+    return;
+  }
+
+  salvaEAggiungi(libro);
+  isbnInput.value = '';
+}
+
+function salvaEAggiungi(libro) {
   stato.scatole[stato.scatolaAttiva].push(libro);
   salvaDati();
   aggiornaUI();
   isbnInput.value = '';
-  const etichetta = libro.titolo !== isbn ? `"${libro.titolo}"` : `ISBN ${isbn}`;
+  const etichetta = libro.titolo !== libro.isbn ? `"${libro.titolo}"` : `ISBN ${libro.isbn}`;
   mostraToast(`📗 ${etichetta} → Scatola ${stato.scatolaAttiva}`);
   mostraFeedback('', '');
 }
+
+let isbnInAttesa = null;
+
+function mostraPannelloTitolo(isbn) {
+  isbnInAttesa = isbn;
+  document.getElementById('titolo-isbn-label').textContent = isbn;
+  document.getElementById('titolo-input').value = '';
+  document.getElementById('titolo-panel').style.display = 'block';
+  setTimeout(() => document.getElementById('titolo-input').focus(), 100);
+}
+
+function chiudiPannelloTitolo() {
+  isbnInAttesa = null;
+  document.getElementById('titolo-panel').style.display = 'none';
+  document.getElementById('titolo-input').value = '';
+}
+
+document.getElementById('btn-titolo-conferma').addEventListener('click', () => {
+  if (!isbnInAttesa) return;
+  const titolo = document.getElementById('titolo-input').value.trim() || isbnInAttesa;
+  salvaEAggiungi({ isbn: isbnInAttesa, titolo, autore: '' });
+  chiudiPannelloTitolo();
+});
+
+document.getElementById('btn-titolo-annulla').addEventListener('click', chiudiPannelloTitolo);
+
+document.getElementById('titolo-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-titolo-conferma').click();
+  if (e.key === 'Escape') chiudiPannelloTitolo();
+});
 
 btnAggiungi.addEventListener('click', () => aggiungiLibro(isbnInput.value));
 
