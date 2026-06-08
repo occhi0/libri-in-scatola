@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Libri in Scatola</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #2b6cb0;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+
+    #btn-nuova-scatola {
+      background: #f6ad55;
+      color: #1a202c;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-nuova-scatola:active { background: #ed8936; }
+
+    main { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+    /* Scatola attiva */
+    #scatola-attiva {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    #scatola-attiva .label {
+      font-size: 0.85rem;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    #scatola-attiva .numero {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #2b6cb0;
+      line-height: 1;
+    }
+
+    #scatola-attiva .conteggio {
+      font-size: 0.95rem;
+      color: #718096;
+      margin-top: 6px;
+    }
+
+    /* Scanner */
+    #scanner-section {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    #scanner-section h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: #2d3748;
+    }
+
+    #video-container {
+      position: relative;
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      display: none;
+    }
+
+    #video-container video {
+      width: 100%;
+      display: block;
+    }
+
+    #scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: #f6ad55;
+      top: 50%;
+      animation: scan 2s ease-in-out infinite;
+    }
+
+    @keyframes scan {
+      0%, 100% { top: 20%; }
+      50% { top: 80%; }
+    }
+
+    #btn-scan {
+      width: 100%;
+      background: #2b6cb0;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #btn-scan:active { background: #2c5282; }
+    #btn-scan.attivo { background: #c53030; }
+    #btn-scan.attivo:active { background: #9b2c2c; }
+
+    #isbn-manuale-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #isbn-input {
+      flex: 1;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    #isbn-input:focus { border-color: #2b6cb0; }
+
+    #btn-aggiungi {
+      background: #38a169;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-aggiungi:active { background: #276749; }
+
+    #feedback {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: none;
+      text-align: center;
+    }
+    #feedback.ok { background: #c6f6d5; color: #22543d; display: block; }
+    #feedback.errore { background: #fed7d7; color: #742a2a; display: block; }
+
+    /* Lista scatole */
+    #lista-scatole { }
+
+    #lista-scatole h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #2d3748;
+    }
+
+    .scatola-card {
+      background: white;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+
+    .scatola-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .scatola-header:active { background: #f7fafc; }
+
+    .scatola-titolo {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #2b6cb0;
+    }
+
+    .scatola-info {
+      font-size: 0.85rem;
+      color: #718096;
+    }
+
+    .scatola-toggle {
+      font-size: 1.1rem;
+      color: #a0aec0;
+      transition: transform 0.2s;
+    }
+    .scatola-toggle.aperta { transform: rotate(180deg); }
+
+    .scatola-libri {
+      display: none;
+      padding: 0 18px 14px;
+      border-top: 1px solid #f0f4f8;
+    }
+    .scatola-libri.visibile { display: block; }
+
+    .libro-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f4f8;
+      font-size: 0.9rem;
+    }
+    .libro-item:last-child { border-bottom: none; }
+
+    .libro-isbn { color: #4a5568; font-family: monospace; }
+
+    .btn-rimuovi {
+      background: none;
+      border: none;
+      color: #e53e3e;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .btn-rimuovi:active { background: #fff5f5; }
+
+    .nessun-libro {
+      color: #a0aec0;
+      font-size: 0.85rem;
+      padding: 8px 0;
+      font-style: italic;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px 16px;
+      color: #a0aec0;
+      font-size: 0.8rem;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #2d3748;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #toast.visibile { transform: translateX(-50%) translateY(0); }
+
+    /* Empty state */
+    #empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: #a0aec0;
+    }
+    #empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
+    #empty-state p { font-size: 0.95rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📦 Libri in Scatola</h1>
+  <button id="btn-nuova-scatola">+ Nuova scatola</button>
+</header>
+
+<main>
+
+  <!-- Scatola attiva -->
+  <div id="scatola-attiva">
+    <div class="label">Stai riempiendo</div>
+    <div class="numero" id="numero-scatola">1</div>
+    <div class="conteggio" id="conteggio-scatola">0 libri</div>
+  </div>
+
+  <!-- Scanner -->
+  <div id="scanner-section">
+    <h2>Scansiona ISBN</h2>
+    <div id="video-container">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="scan-line"></div>
+    </div>
+    <button id="btn-scan">
+      <span>📷</span> Apri fotocamera
+    </button>
+    <div id="isbn-manuale-row">
+      <input id="isbn-input" type="number" inputmode="numeric" placeholder="ISBN manuale..." />
+      <button id="btn-aggiungi">Aggiungi</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <!-- Lista scatole -->
+  <div id="lista-scatole">
+    <h2>Tutte le scatole</h2>
+    <div id="scatole-container">
+      <div id="empty-state">
+        <div class="emoji">📦</div>
+        <p>Nessun libro ancora.<br>Scansiona il primo ISBN!</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Dati salvati sul tuo telefono</footer>
+
+<div id="toast"></div>
+
+<!-- ZXing per la scansione barcode -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+
+<script>
+// ── STATO ─────────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'libri-in-scatola-v1';
+
+function caricaDati() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { scatolaAttiva: 1, scatole: {} };
+}
+
+function salvaDati() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stato));
+}
+
+let stato = caricaDati();
+// Assicura che la scatola attiva esista
+if (!stato.scatole[stato.scatolaAttiva]) {
+  stato.scatole[stato.scatolaAttiva] = [];
+}
+
+// ── SCANNER ───────────────────────────────────────────────────────────────────
+
+let codeReader = null;
+let scannerAttivo = false;
+
+const videoContainer = document.getElementById('video-container');
+const videoEl = document.getElementById('video');
+const btnScan = document.getElementById('btn-scan');
+const isbnInput = document.getElementById('isbn-input');
+const btnAggiungi = document.getElementById('btn-aggiungi');
+const feedback = document.getElementById('feedback');
+
+async function avviaScanner() {
+  if (typeof ZXing === 'undefined') {
+    mostraFeedback('Libreria scanner non disponibile. Usa inserimento manuale.', 'errore');
+    return;
+  }
+  try {
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await codeReader.listVideoInputDevices();
+    if (!devices.length) {
+      mostraFeedback('Nessuna fotocamera trovata.', 'errore');
+      return;
+    }
+    // Preferisce fotocamera posteriore
+    const device = devices.find(d =>
+      /back|rear|environment/i.test(d.label)
+    ) || devices[devices.length - 1];
+
+    videoContainer.style.display = 'block';
+    btnScan.classList.add('attivo');
+    btnScan.innerHTML = '<span>⏹</span> Ferma scansione';
+    scannerAttivo = true;
+
+    await codeReader.decodeFromVideoDevice(device.deviceId, videoEl, (result, err) => {
+      if (result) {
+        const isbn = result.getText().replace(/\D/g, '');
+        if (isbn.length >= 10) {
+          fermaScanner();
+          aggiungiLibro(isbn);
+        }
+      }
+    });
+  } catch(e) {
+    mostraFeedback('Errore fotocamera: ' + (e.message || 'permesso negato'), 'errore');
+    fermaScanner();
+  }
+}
+
+function fermaScanner() {
+  if (codeReader) {
+    codeReader.reset();
+    codeReader = null;
+  }
+  videoContainer.style.display = 'none';
+  btnScan.classList.remove('attivo');
+  btnScan.innerHTML = '<span>📷</span> Apri fotocamera';
+  scannerAttivo = false;
+}
+
+btnScan.addEventListener('click', () => {
+  if (scannerAttivo) fermaScanner();
+  else avviaScanner();
+});
+
+// ── AGGIUNTA LIBRO ─────────────────────────────────────────────────────────────
+
+function aggiungiLibro(isbn) {
+  isbn = String(isbn).trim().replace(/\D/g, '');
+  if (!isbn || isbn.length < 10) {
+    mostraFeedback('ISBN non valido (min. 10 cifre).', 'errore');
+    return;
+  }
+
+  // Controlla duplicato globale
+  for (const [num, libri] of Object.entries(stato.scatole)) {
+    if (libri.includes(isbn)) {
+      mostraFeedback(`⚠️ ISBN già nella Scatola ${num}!`, 'errore');
+      return;
+    }
+  }
+
+  stato.scatole[stato.scatolaAttiva].push(isbn);
+  salvaDati();
+  aggiornaUI();
+  isbnInput.value = '';
+  mostraToast(`📗 Aggiunto alla Scatola ${stato.scatolaAttiva}`);
+  mostraFeedback('', '');
+}
+
+btnAggiungi.addEventListener('click', () => aggiungiLibro(isbnInput.value));
+
+isbnInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') aggiungiLibro(isbnInput.value);
+});
+
+// ── NUOVA SCATOLA ─────────────────────────────────────────────────────────────
+
+document.getElementById('btn-nuova-scatola').addEventListener('click', () => {
+  const nuovoNum = Math.max(...Object.keys(stato.scatole).map(Number), 0) + 1;
+  stato.scatolaAttiva = nuovoNum;
+  stato.scatole[nuovoNum] = [];
+  salvaDati();
+  aggiornaUI();
+  mostraToast(`📦 Scatola ${nuovoNum} creata!`);
+  fermaScanner();
+});
+
+// ── RIMOZIONE LIBRO ───────────────────────────────────────────────────────────
+
+function rimuoviLibro(scatola, isbn) {
+  stato.scatole[scatola] = stato.scatole[scatola].filter(i => i !== isbn);
+  salvaDati();
+  aggiornaUI();
+  mostraToast('🗑️ ISBN rimosso');
+}
+
+// ── UI ─────────────────────────────────────────────────────────────────────────
+
+function aggiornaUI() {
+  // Scatola attiva
+  document.getElementById('numero-scatola').textContent = stato.scatolaAttiva;
+  const n = (stato.scatole[stato.scatolaAttiva] || []).length;
+  document.getElementById('conteggio-scatola').textContent =
+    n === 1 ? '1 libro' : `${n} libri`;
+
+  // Lista scatole
+  const container = document.getElementById('scatole-container');
+  const numeri = Object.keys(stato.scatole)
+    .map(Number)
+    .sort((a, b) => b - a); // dalla più recente
+
+  const totLibri = Object.values(stato.scatole).reduce((s, a) => s + a.length, 0);
+
+  if (totLibri === 0) {
+    container.innerHTML = `
+      <div id="empty-state">
+        <div class="emoji">📦</div>
+        <p>Nessun libro ancora.<br>Scansiona il primo ISBN!</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = numeri.map(num => {
+    const libri = stato.scatole[num] || [];
+    const isAttiva = num === stato.scatolaAttiva;
+    return `
+      <div class="scatola-card">
+        <div class="scatola-header" onclick="toggleScatola(${num})">
+          <div>
+            <div class="scatola-titolo">
+              📦 Scatola ${num}${isAttiva ? ' ✏️' : ''}
+            </div>
+            <div class="scatola-info">
+              ${libri.length === 1 ? '1 libro' : `${libri.length} libri`}
+            </div>
+          </div>
+          <div class="scatola-toggle" id="toggle-${num}">▼</div>
+        </div>
+        <div class="scatola-libri" id="libri-${num}">
+          ${libri.length === 0
+            ? '<div class="nessun-libro">Nessun libro</div>'
+            : libri.map(isbn => `
+              <div class="libro-item">
+                <span class="libro-isbn">${isbn}</span>
+                <button class="btn-rimuovi" onclick="rimuoviLibro(${num}, '${isbn}')" title="Rimuovi">✕</button>
+              </div>`).join('')
+          }
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleScatola(num) {
+  const libriEl = document.getElementById(`libri-${num}`);
+  const toggleEl = document.getElementById(`toggle-${num}`);
+  const aperta = libriEl.classList.toggle('visibile');
+  toggleEl.classList.toggle('aperta', aperta);
+}
+
+// ── FEEDBACK & TOAST ──────────────────────────────────────────────────────────
+
+function mostraFeedback(msg, tipo) {
+  feedback.textContent = msg;
+  feedback.className = tipo === 'ok' ? 'ok' : tipo === 'errore' ? 'errore' : '';
+  if (tipo === 'ok') setTimeout(() => { feedback.className = ''; }, 2000);
+}
+
+let toastTimer = null;
+function mostraToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('visibile');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visibile'), 2500);
+}
+
+// ── AVVIO ─────────────────────────────────────────────────────────────────────
+
+aggiornaUI();
+</script>
+</body>
+</html>
