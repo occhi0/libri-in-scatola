@@ -430,7 +430,9 @@
     <div id="titolo-panel" style="display:none; margin-top:14px; background:#fffbeb; border:2px solid #f6ad55; border-radius:12px; padding:16px;">
       <div style="font-size:0.9rem; font-weight:700; margin-bottom:4px; color:#92400e;">Titolo non trovato per:</div>
       <div id="titolo-isbn-label" style="font-family:monospace; color:#4a5568; margin-bottom:12px; font-size:0.85rem;"></div>
-      <input id="titolo-input" type="text" placeholder="Scrivi il titolo (opzionale)…"
+      <input id="titolo-input" type="text" placeholder="Titolo (opzionale)…"
+        style="width:100%; border:2px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:1rem; margin-bottom:8px; outline:none;" />
+      <input id="autore-input" type="text" placeholder="Autore (opzionale)…"
         style="width:100%; border:2px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:1rem; margin-bottom:10px; outline:none;" />
       <div style="display:flex; gap:8px;">
         <button id="btn-titolo-conferma" style="flex:1; background:#38a169; color:white; border:none; border-radius:10px; padding:12px; font-size:1rem; font-weight:700; cursor:pointer;">Conferma</button>
@@ -748,6 +750,7 @@ function mostraPannelloTitolo(isbn) {
   isbnInAttesa = isbn;
   document.getElementById('titolo-isbn-label').textContent = isbn;
   document.getElementById('titolo-input').value = '';
+  document.getElementById('autore-input').value = '';
   document.getElementById('titolo-panel').style.display = 'block';
   setTimeout(() => document.getElementById('titolo-input').focus(), 100);
 }
@@ -756,12 +759,14 @@ function chiudiPannelloTitolo() {
   isbnInAttesa = null;
   document.getElementById('titolo-panel').style.display = 'none';
   document.getElementById('titolo-input').value = '';
+  document.getElementById('autore-input').value = '';
 }
 
 document.getElementById('btn-titolo-conferma').addEventListener('click', () => {
   if (!isbnInAttesa) return;
   const titolo = document.getElementById('titolo-input').value.trim() || isbnInAttesa;
-  salvaEAggiungi({ isbn: isbnInAttesa, titolo, autore: '' });
+  const autore = document.getElementById('autore-input').value.trim();
+  salvaEAggiungi({ isbn: isbnInAttesa, titolo, autore });
   chiudiPannelloTitolo();
 });
 
