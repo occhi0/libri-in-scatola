@@ -583,7 +583,8 @@ async function avviaScanner() {
         facingMode: { ideal: 'environment' },
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        focusMode: { ideal: 'continuous' }
+        focusMode: { ideal: 'continuous' },
+        advanced: [{ torch: false }]
       }
     });
     streamAttivo = stream;
@@ -733,12 +734,25 @@ async function toggleTorcia() {
   torciaAccesa = !torciaAccesa;
   try {
     await track.applyConstraints({ advanced: [{ torch: torciaAccesa }] });
+    // verifica che sia davvero cambiata
+    const settings = track.getSettings();
+    if (settings.torch !== undefined && settings.torch !== torciaAccesa) {
+      throw new Error('torch non applicata');
+    }
   } catch(e) {
-    // fallback: prova con fillLightMode
+    // richiedi un nuovo stream con torcia già accesa
     try {
-      await track.applyConstraints({ advanced: [{ fillLightMode: torciaAccesa ? 'torch' : 'off' }] });
+      if (streamAttivo) streamAttivo.getTracks().forEach(t => t.stop());
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          advanced: [{ torch: torciaAccesa }]
+        }
+      });
+      streamAttivo = newStream;
+      videoEl.srcObject = newStream;
     } catch(e2) {
-      mostraToast('Torcia non supportata dal browser — prova Chrome');
+      mostraToast('Torcia non supportata — prova Chrome');
       torciaAccesa = false;
       return;
     }
