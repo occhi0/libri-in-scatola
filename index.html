@@ -439,9 +439,6 @@
     <button id="btn-scan">
       <span>📷</span> Apri fotocamera
     </button>
-    <button id="btn-torcia" style="display:none; width:100%; background:#4a5568; color:white; border:none; border-radius:12px; padding:12px; font-size:1rem; font-weight:700; cursor:pointer; margin-bottom:12px;">
-      🔦 Torcia: OFF
-    </button>
     <div id="isbn-manuale-row">
       <input id="isbn-input" type="number" inputmode="numeric" placeholder="ISBN manuale..." />
       <button id="btn-aggiungi">Aggiungi</button>
@@ -583,8 +580,7 @@ async function avviaScanner() {
         facingMode: { ideal: 'environment' },
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        focusMode: { ideal: 'continuous' },
-        advanced: [{ torch: false }]
+        focusMode: { ideal: 'continuous' }
       }
     });
     streamAttivo = stream;
@@ -596,8 +592,6 @@ async function avviaScanner() {
     btnScan.innerHTML = '<span>⏹</span> Ferma scansione';
     scannerAttivo = true;
     mostraFeedback('', '');
-    document.getElementById('btn-torcia').style.display = 'block';
-
     if (usaBarcodeDetector) {
       avviaConBarcodeDetector();
     } else {
@@ -721,48 +715,6 @@ function fermaScanner() {
   videoContainer.style.display = 'none';
   btnScan.classList.remove('attivo');
   btnScan.innerHTML = '<span>📷</span> Apri fotocamera';
-  document.getElementById('btn-torcia').style.display = 'none';
-  torciaAccesa = false;
-}
-
-let torciaAccesa = false;
-
-async function toggleTorcia() {
-  if (!streamAttivo) return;
-  const track = streamAttivo.getVideoTracks()[0];
-  if (!track) return;
-  torciaAccesa = !torciaAccesa;
-  try {
-    await track.applyConstraints({ advanced: [{ torch: torciaAccesa }] });
-    // verifica che sia davvero cambiata
-    const settings = track.getSettings();
-    if (settings.torch !== undefined && settings.torch !== torciaAccesa) {
-      throw new Error('torch non applicata');
-    }
-  } catch(e) {
-    // richiedi un nuovo stream con torcia già accesa
-    try {
-      if (streamAttivo) streamAttivo.getTracks().forEach(t => t.stop());
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          advanced: [{ torch: torciaAccesa }]
-        }
-      });
-      streamAttivo = newStream;
-      videoEl.srcObject = newStream;
-    } catch(e2) {
-      mostraToast('Torcia non supportata — prova Chrome');
-      torciaAccesa = false;
-      return;
-    }
-  }
-  const btn = document.getElementById('btn-torcia');
-  btn.textContent = torciaAccesa ? '🔦 Torcia: ON' : '🔦 Torcia: OFF';
-  btn.style.background = torciaAccesa ? '#d69e2e' : '#4a5568';
-}
-
-document.getElementById('btn-torcia').addEventListener('click', toggleTorcia);
 
 btnScan.addEventListener('click', () => {
   if (scannerAttivo) fermaScanner();
