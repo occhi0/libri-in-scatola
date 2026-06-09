@@ -729,12 +729,20 @@ let torciaAccesa = false;
 async function toggleTorcia() {
   if (!streamAttivo) return;
   const track = streamAttivo.getVideoTracks()[0];
-  if (!track || !track.getCapabilities || !track.getCapabilities().torch) {
-    mostraToast('Torcia non disponibile su questo dispositivo');
-    return;
-  }
+  if (!track) return;
   torciaAccesa = !torciaAccesa;
-  await track.applyConstraints({ advanced: [{ torch: torciaAccesa }] });
+  try {
+    await track.applyConstraints({ advanced: [{ torch: torciaAccesa }] });
+  } catch(e) {
+    // fallback: prova con fillLightMode
+    try {
+      await track.applyConstraints({ advanced: [{ fillLightMode: torciaAccesa ? 'torch' : 'off' }] });
+    } catch(e2) {
+      mostraToast('Torcia non supportata dal browser — prova Chrome');
+      torciaAccesa = false;
+      return;
+    }
+  }
   const btn = document.getElementById('btn-torcia');
   btn.textContent = torciaAccesa ? '🔦 Torcia: ON' : '🔦 Torcia: OFF';
   btn.style.background = torciaAccesa ? '#d69e2e' : '#4a5568';
