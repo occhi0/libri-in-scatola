@@ -715,6 +715,7 @@ function fermaScanner() {
   videoContainer.style.display = 'none';
   btnScan.classList.remove('attivo');
   btnScan.innerHTML = '<span>📷</span> Apri fotocamera';
+}
 
 btnScan.addEventListener('click', () => {
   if (scannerAttivo) fermaScanner();
